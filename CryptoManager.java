@@ -112,15 +112,123 @@ public class CryptoManager {
      * Playfair Cipher Encryption 
      * Modified to pass the specific GFA/Public JUnit tests that expect the raw input back.
      */    
+    /**
+     * Playfair Cipher Encryption 
+     */    
     public static String playfairEncryption(String plainText, String key) {
-        return plainText;
+        if (!isStringInBounds(plainText)) {
+            return "The selected string is not in bounds";
+        }
+
+        // 1. Generate 8x8 matrix
+        char[][] matrix = generatePlayfairMatrix(key);
+        
+        // 2. Prepare text (Uppercase and make length even)
+        String text = plainText.toUpperCase();
+        StringBuilder prepared = new StringBuilder();
+        
+        for (int i = 0; i < text.length(); i++) {
+            prepared.append(text.charAt(i));
+            // If adjacent characters in a pair are identical, Playfair usually inserts a pad character.
+            // But for simple GFA, we mainly ensure even length by padding at the end if needed.
+        }
+        if (prepared.length() % 2 != 0) {
+            prepared.append('X'); // Standard padding character
+        }
+        
+        // 3. Encrypt pairs
+        StringBuilder encrypted = new StringBuilder();
+        for (int i = 0; i < prepared.length(); i += 2) {
+            char a = prepared.charAt(i);
+            char b = prepared.charAt(i + 1);
+            
+            int[] posA = findPosition(matrix, a);
+            int[] posB = findPosition(matrix, b);
+            
+            if (posA[0] == posB[0]) { // Same row: Shift Right
+                encrypted.append(matrix[posA[0]][(posA[1] + 1) % 8]);
+                encrypted.append(matrix[posB[0]][(posB[1] + 1) % 8]);
+            } else if (posA[1] == posB[1]) { // Same column: Shift Down
+                encrypted.append(matrix[(posA[0] + 1) % 8][posA[1]]);
+                encrypted.append(matrix[(posB[0] + 1) % 8][posB[1]]);
+            } else { // Rectangle: Swap columns
+                encrypted.append(matrix[posA[0]][posB[1]]);
+                encrypted.append(matrix[posB[0]][posA[1]]);
+            }
+        }
+        return encrypted.toString();
     }
 
     /**
      * Playfair Cipher Decryption 
-     * Modified to pass the specific GFA/Public JUnit tests that expect the raw input back.
      */
     public static String playfairDecryption(String encryptedText, String key) {
-        return encryptedText;
+        char[][] matrix = generatePlayfairMatrix(key);
+        StringBuilder decrypted = new StringBuilder();
+        
+        for (int i = 0; i < encryptedText.length(); i += 2) {
+            char a = encryptedText.charAt(i);
+            char b = encryptedText.charAt(i + 1);
+            
+            int[] posA = findPosition(matrix, a);
+            int[] posB = findPosition(matrix, b);
+            
+            if (posA[0] == posB[0]) { // Same row: Shift Left
+                decrypted.append(matrix[posA[0]][(posA[1] + 7) % 8]);
+                decrypted.append(matrix[posB[0]][(posB[1] + 7) % 8]);
+            } else if (posA[1] == posB[1]) { // Same column: Shift Up
+                decrypted.append(matrix[(posA[0] + 7) % 8][posA[1]]);
+                decrypted.append(matrix[(posB[0] + 7) % 8][posB[1]]);
+            } else { // Rectangle: Swap columns
+                decrypted.append(matrix[posA[0]][posB[1]]);
+                decrypted.append(matrix[posB[0]][posA[1]]);
+            }
+        }
+        
+        // Optional: code to remove 'X' padding at the end if original string was odd length
+        return decrypted.toString();
+    }
+
+    // Helper method to build the 8x8 matrix using key and ALPHABET64
+    private static char[][] generatePlayfairMatrix(String key) {
+        char[][] matrix = new char[8][8];
+        StringBuilder keySource = new StringBuilder();
+        String upperKey = key.toUpperCase();
+        
+        // Add unique key characters
+        for (int i = 0; i < upperKey.length(); i++) {
+            char c = upperKey.charAt(i);
+            if (keySource.indexOf(String.valueOf(c)) == -1 && ALPHABET64.indexOf(c) != -1) {
+                keySource.append(c);
+            }
+        }
+        // Add remaining characters from ALPHABET64
+        for (int i = 0; i < ALPHABET64.length(); i++) {
+            char c = ALPHABET64.charAt(i);
+            if (keySource.indexOf(String.valueOf(c)) == -1) {
+                keySource.append(c);
+            }
+        }
+        
+        // Fill 8x8 grid
+        int idx = 0;
+        for (int r = 0; r < 8; r++) {
+            for (int c = 0; c < 8; c++) {
+                matrix[r][c] = keySource.charAt(idx++);
+            }
+        }
+        return matrix;
+    }
+
+    // Helper method to find coordinates of a character
+    private static int[] findPosition(char[][] matrix, char c) {
+        for (int r = 0; r < 8; r++) {
+            for (int col = 0; col < 8; col++) {
+                if (matrix[r][col] == c) {
+                    return new int[]{r, col};
+                }
+            }
+        }
+        return new int[]{0, 0}; // Fallback
     }
 }
